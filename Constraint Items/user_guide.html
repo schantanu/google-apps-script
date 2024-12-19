@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 13.3px;
+      }
+      ol {
+        padding-left: 15px;
+        list-style-position: inside;
+      }
+    </style>
+  </head>
+  <body>
+    <h3><u>Forecast Accuracy Items</u></h3>
+    <p>
+      Forecast Accuracy Items GSheet is a process implemented by the NSC RAN Planning team for the
+      Forecast Accuracy Tableau Dashboard. Using this GSheet, the Demand Planners can customize the
+      Forecast Months for which specific Common IDs should be reported on the Forecast Accuracy
+      Tableau Dashboard.
+      <br><br>
+
+      There are two distinct values in the `Input` tab's Month columns,
+      <br><br><b>1. <u>Exclude</u></b><br>
+      These values have been preset by the logic using the `Planned Start Date` and `Planned End Date`
+      columns, which are managed by the Tracked Items table process. These values <b>cannot be edited</b>
+      via this GSheet. To edit these values, you will need to edit the Planning dates accordingly via
+      the <b>Tracked Items process</b> managed by Terrence Belmonti.
+
+      <br><br><b>2. <u>Manual Constraint</u></b><br>
+      These values have been manually edited and managed by the Demand Planners for their respective
+      items via this GSheet. To edit these values, you can utilize the following two scripts available
+      under the <b>Editor menu</b>,
+
+      <ol type="a">
+        <li><b><u>Add Constraint Items</u></b><br>
+          Use this option to add the `Manual Constraint` values to the specific Common IDs and Months. You can
+          add single or multiple items and months. You can only add constraint items to current and future months.
+          <br><br>
+        </li>
+        <li><b><u>Remove Constraint Items</u></b><br>
+          Use this option to remove any `Manual Constraint` values. You can only remove the values that have
+          been set earlier using the `Add Constraint Item` script. You can remove single or multiple items and
+          months with this option. You can only remove constraint items from current and future months.
+        </li>
+      </ol>
+
+      <br><i>For any questions, please reach out to the GSheet Admin.</i>
+    </p>
+  </body>
+</html>

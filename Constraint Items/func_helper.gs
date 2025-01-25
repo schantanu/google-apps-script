@@ -210,10 +210,13 @@ function updateSheetsProtection() {
       // Protect the entire sheet and allow only Admins to edit
       const protection = sheet.protect().setDescription('Admin access only');
 
+      // Remove existing editors
+      protection.removeEditors(protection.getEditors());
+
       // Check and add valid admin users
       admins.forEach(email => {
         try {
-          protection.removeEditors(protection.getEditors());
+          // Add editor
           protection.addEditor(email);
           Logger.log(`Access successfully granted to '${sheetName}' sheet for ${email}.`);
         } catch (error) {

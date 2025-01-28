@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 12px;
+      }
+      h4 { font-weight: bold; }
+      h5, h6 {
+        font-weight: bold;
+        margin: 0;
+      }
+      p {
+        font-size: 12.4px;
+        margin: 0;
+      }
+      .form-select, .form-control {
+        font-size: 12.4px;
+      }
+      .required:after {
+        content:" *";
+        color: red;
+      }
+      .form-label {
+        font-weight: bold;
+      }
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 5px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 5px solid #3498db;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .form-container {
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+      }
+      .form-container.loaded {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="loader"></div>
+    </div>
+
+    <div class="container form-container" id="form-container">
+      <div class="mt-3 d-grid gap-2">
+        <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showUserConsole')">← Back to User Console</button>
+      </div>
+
+      <hr>
+
+      <div class="mt-3 mb-3">
+        <h6 id="form-header">Update Attributes</h6>
+        <p class="mt-2 mb-3" id="form-description"></p>
+      </div>
+
+      <hr>
+
+      <form id="attr-form" class="mt-3">
+        <div class="mb-3">
+          <label id="id-label" for="id-select" class="form-label required"></label>
+          <select class="form-select" id="id-select" required>
+            <option value="" selected disabled>Select ID</option>
+          </select>
+        </div>
+
+        <div id="attributes-container"></div>
+
+        <div class="mt-4 d-grid gap-2">
+          <button type="submit" id="submit-btn" class="btn btn-sm btn-primary">Submit for Approval</button>
+        </div>
+      </form>
+
+      <div class="mt-3">
+        <div id="alert"></div>
+      </div>
+    </div>
+
+    <script>
+      let attributeType = '';
+      let dropdownValues = {};
+      let isInitialLoad = true;
+
+      function showLoading() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+        document.getElementById('form-container').classList.remove('loaded');
+      }
+
+      function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+        document.getElementById('form-container').classList.add('loaded');
+      }
+
+      function initializeForm(type) {
+        showLoading();
+        attributeType = type;
+        const isCommon = type === 'common';
+
+        document.getElementById('form-header').textContent = `Update ${isCommon ? 'Common ID' : 'Item ID'} Attributes`;
+        document.getElementById('form-description').textContent = `Update attributes for selected ${isCommon ? 'Common ID' : 'Item ID'}.`;
+        document.getElementById('id-label').textContent = isCommon ? 'Common ID' : 'Item ID';
+
+        google.script.run
+          .withSuccessHandler(data => {
+            loadFormData(data);
+            if (isInitialLoad) {
+              hideLoading();
+              isInitialLoad = false;
+            }
+          })
+          .withFailureHandler(error => {
+            showAlert('danger', `Error loading form: ${error.message}`);
+            hideLoading();
+          })
+          .getAttributeData(type);
+      }
+
+      function loadAttributeValues(selectedId) {
+        if (!selectedId) return;
+
+        showLoading();
+
+        google.script.run
+          .withSuccessHandler(values => {
+            if (!values) {
+              hideLoading();
+              return;
+            }
+
+            Object.entries(values).forEach(([key, value]) => {
+              const input = document.getElementById(key);
+              if (!input) return;
+
+              input.value = value;
+              if (input.classList.contains('datepicker')) {
+                input._flatpickr?.setDate(value);
+              }
+            });
+            hideLoading();
+          })
+          .withFailureHandler(error => {
+            showAlert('danger', `Error loading values: ${error.message}`);
+            hideLoading();
+          })
+          .getCurrentValues(attributeType, selectedId);
+      }
+
+      function loadFormData(data) {
+        const { ids, attributes, dropdowns } = data;
+        dropdownValues = dropdowns || {};
+
+        const idSelect = document.getElementById('id-select');
+        idSelect.innerHTML = '<option value="" selected disabled>Select ID</option>';
+        ids.forEach(id => {
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = id;
+          idSelect.appendChild(option);
+        });
+
+        const container = document.getElementById('attributes-container');
+        container.innerHTML = '';
+
+        attributes.forEach(attr => {
+          const div = document.createElement('div');
+          div.className = 'mb-3';
+
+          const label = document.createElement('label');
+          label.className = 'form-label required';
+          label.textContent = attr.name;
+
+          let input;
+
+          switch(attr.type) {
+            case 'text':
+              input = document.createElement('input');
+              input.type = 'text';
+              input.className = 'form-control';
+              input.maxLength = attr.maxLength;
+              break;
+
+            case 'date':
+              input = document.createElement('input');
+              input.type = 'text';
+              input.className = 'form-control datepicker';
+              break;
+
+            case 'dropdown':
+              input = document.createElement('select');
+              input.className = 'form-select';
+
+              const defaultOption = document.createElement('option');
+              defaultOption.value = '';
+              defaultOption.textContent = `Select ${attr.name}`;
+              defaultOption.disabled = true;
+              defaultOption.selected = true;
+              input.appendChild(defaultOption);
+
+              if (dropdownValues[attr.name]) {
+                dropdownValues[attr.name].forEach(value => {
+                  const option = document.createElement('option');
+                  option.value = value;
+                  option.textContent = value;
+                  input.appendChild(option);
+                });
+              }
+              break;
+          }
+
+          input.id = attr.name.replace(/\s+/g, '-').toLowerCase();
+          input.required = true;
+
+          div.appendChild(label);
+          div.appendChild(input);
+          container.appendChild(div);
+        });
+
+        if (attributeType === 'common') {
+          const fp1 = flatpickr('#common-attr-2', {
+            dateFormat: 'Y-m-d',
+            onChange: function(selectedDates) {
+              fp2.set('minDate', selectedDates[0]);
+            }
+          });
+
+          const fp2 = flatpickr('#common-attr-3', {
+            dateFormat: 'Y-m-d'
+          });
+        }
+      }
+
+      // Add error retry logic for ID selection
+      document.getElementById('id-select').addEventListener('change', function(e) {
+        const selectedId = this.value;
+        if (!selectedId) return;
+
+        // Prevent multiple calls
+        e.preventDefault();
+        showLoading();
+
+        google.script.run
+          .withSuccessHandler(function(values) {
+            console.log('Received values:', values); // Debug logging
+            if (values) {
+              Object.entries(values).forEach(([key, value]) => {
+                const input = document.getElementById(key);
+                if (input) {
+                  console.log('Setting', key, 'to', value); // Debug logging
+                  input.value = value;
+                  if (input.classList.contains('datepicker') && input._flatpickr) {
+                    input._flatpickr.setDate(value);
+                  }
+                }
+              });
+            }
+            hideLoading();
+          })
+          .withFailureHandler(function(error) {
+            console.error('Error loading values:', error); // Debug logging
+            showAlert('danger', 'Failed to load values: ' + error.message);
+            hideLoading();
+          })
+          .getCurrentValues(attributeType, selectedId);
+      });
+
+      document.getElementById('attr-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = {
+          type: attributeType,
+          id: document.getElementById('id-select').value,
+          attributes: {}
+        };
+
+        const container = document.getElementById('attributes-container');
+        container.querySelectorAll('input, select').forEach(input => {
+          formData.attributes[input.id] = input.value;
+        });
+
+        document.getElementById('submit-btn').disabled = true;
+
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .submitAttributeRequest(formData);
+      });
+
+      function handleSubmitSuccess() {
+        showAlert('success', 'Request submitted successfully! Awaiting admin approval.');
+        document.getElementById('attr-form').reset();
+        document.getElementById('submit-btn').disabled = false;
+      }
+
+      function handleSubmitError(error) {
+        showAlert('danger', `Error: ${error.message}`);
+        document.getElementById('submit-btn').disabled = false;
+      }
+
+      function showAlert(type, message) {
+        const alertDiv = document.getElementById('alert');
+        alertDiv.innerHTML = `
+          <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `;
+      }
+
+      function toggleSpinner(btn, fn) {
+        const btnText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+        btn.disabled = true;
+
+        google.script.run
+          .withSuccessHandler(() => {
+            btn.innerHTML = btnText;
+            btn.disabled = false;
+          })
+          .withFailureHandler(() => {
+            btn.innerHTML = btnText;
+            btn.disabled = false;
+          })[fn]();
+      }
+    </script>
+  </body>
+</html>

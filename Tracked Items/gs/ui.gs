@@ -13,11 +13,29 @@ function onOpen(e) {
         .addItem('⚙️ Admin Console', 'showAdminConsole')
       .addToUi();
 
-    // Hide Admin Sheet
-    // hideSheet(adminSheetName);
+    // Hide sheets
+    // hideSheet(SHEET_CONFIG.ADMIN.NAME);
+    // hideSheet(SHEET_CONFIG.DROPDOWNS.NAME);
+    // hideSheet(SHEET_CONFIG.DATA.NAME);
 
     // Activate Input Sheet
-    activateCell(inputSheetName);
+    activateCell(SHEET_CONFIG.INPUT.NAME);
+  } catch (error) {
+    Logger.log(error.stack);
+  }
+}
+
+/**
+ * Show sidebar form.
+ * @param {string} sidebarHtml - The html element to show as sidebar.
+ * @param {string} sidebarTitle - The title of the sidebar.
+ */
+function showSidebar(sidebarHtml, sidebarTitle) {
+  try {
+    // Show Sidebar
+    const ui = SpreadsheetApp.getUi();
+    const html = HtmlService.createHtmlOutputFromFile(sidebarHtml).setTitle(sidebarTitle);
+    ui.showSidebar(html);
   } catch (error) {
     Logger.log(error.stack);
   }
@@ -51,25 +69,20 @@ function showUserConsole() {
   }
 }
 
-// function showAttributeManager(type) {
-//   try {
-//     // Run only if current user has User access
-//     if (!checkAccess('User')) return;
+/**
+ * Shows the admin console sidebar.
+ */
+function showAdminConsole() {
+  try {
+    // Run only if current user has Admin access
+    if (!checkAccess('Admin')) return;
 
-//     // Show Sidebar with type parameter
-//     const html = HtmlService.createHtmlOutputFromFile('attr_manager')
-//       .setTitle('Update Attributes');
-
-//     // Append initialization script
-//     const template = html.getContent();
-//     const output = template + `<script>window.onload = function() { initializeForm('${type}'); }</script>`;
-
-//     // Show sidebar
-//     SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(output));
-//   } catch (error) {
-//     Logger.log(error.stack);
-//   }
-// }
+    // Show Sidebar
+    showSidebar('admin_console', 'Admin Console');
+  } catch (error) {
+    Logger.log(error.stack);
+  }
+}
 
 /**
  * Shows the attribute manager sidebar with initialization
@@ -92,28 +105,58 @@ function showAttributeManager(type) {
   }
 }
 
-function showUserRequests() {
+/**
+ * Shows the requests sidebar form.
+ */
+function showRequestsSidebar() {
   try {
     // Run only if current user has User access
     if (!checkAccess('User')) return;
 
     // Show Sidebar
-    showSidebar('user_requests', 'My Requests');
+    showSidebar('requests', 'Admin Requests');
   } catch (error) {
     Logger.log(error.stack);
   }
 }
 
 /**
- * Shows the admin console sidebar.
+ * Shows Update data sidebar form.
  */
-function showAdminConsole() {
+function showUpdateDataSidebar() {
   try {
     // Run only if current user has Admin access
     if (!checkAccess('Admin')) return;
 
+    // Activate 'Requests' sheet
+    activateCell(SHEET_CONFIG.REQUESTS.NAME);
+
+    // Get unique Comment Dates
+    commentDates = getCommentDates();
+
+    // Show Sidebar form
+    const ui = SpreadsheetApp.getUi();
+    const htmlOutput = HtmlService.createTemplateFromFile('data_update');
+    htmlOutput.data = JSON.stringify(commentDates);
+    ui.showSidebar(htmlOutput.evaluate().setTitle('Update Data'));
+  } catch (error) {
+    Logger.log(error.stack);
+  }
+}
+
+/**
+ * Shows Get data sidebar.
+ */
+function showGetDataSidebar() {
+  try {
+    // Run only if current user has Admin access
+    if (!checkAccess('Admin')) return;
+
+    // Activate 'Data' sheet
+    activateCell(SHEET_CONFIG.DATA.NAME);
+
     // Show Sidebar
-    showSidebar('admin_console', 'Admin Console');
+    showSidebar('data_get', 'Get Data');
   } catch (error) {
     Logger.log(error.stack);
   }
@@ -128,10 +171,10 @@ function showAddRoleSidebar() {
     if (!checkAccess('Admin')) return;
 
     // Activate 'Admin' sheet
-    activateCell(adminSheetName);
+    activateCell(SHEET_CONFIG.ADMIN.NAME);
 
     // Show Sidebar
-    showSidebar('sidebar_role_add', 'Add Role');
+    showSidebar('role_add', 'Add Role');
   } catch (error) {
     Logger.log(error.stack);
   }
@@ -146,10 +189,10 @@ function showRemoveRoleSidebar() {
     if (!checkAccess('Admin')) return;
 
     // Activate 'Admin' sheet
-    activateCell(adminSheetName);
+    activateCell(SHEET_CONFIG.ADMIN.NAME);
 
     // Show Sidebar
-    showSidebar('sidebar_role_remove', 'Remove Role');
+    showSidebar('role_remove', 'Remove Role');
   } catch (error) {
     Logger.log(error.stack);
   }
@@ -164,7 +207,7 @@ function showResetSheetSidebar() {
     if (!checkAccess('Admin')) return;
 
     // Show Sidebar
-    showSidebar('sidebar_reset_sheet', 'Reset Sheet');
+    showSidebar('reset_sheets', 'Reset Sheets');
   } catch (error) {
     Logger.log(error.stack);
   }

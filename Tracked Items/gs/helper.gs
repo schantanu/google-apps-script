@@ -17,8 +17,8 @@
  */
 function getRoleCol(role) {
   try {
-    return (role === 'Admin') ? adminColAdmins
-      : (role === 'User') ? adminColUsers
+    return (role === 'Admin') ? SHEET_CONFIG.ADMIN.COLUMNS.ADMINS
+      : (role === 'User') ? SHEET_CONFIG.ADMIN.COLUMNS.USERS
       : null;
   } catch (error) {
     Logger.log(error.stack);
@@ -32,7 +32,7 @@ function getRoleCol(role) {
 function checkAccess(role) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(adminSheetName);
+    const sheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
     const ui = SpreadsheetApp.getUi();
 
     // Get current user email
@@ -42,11 +42,19 @@ function checkAccess(role) {
     const roleCol = getRoleCol(role);
 
     // Get list of email addresses to check access privileges against
+    const lastRow = sheet.getLastRow();
     const roleEmails = role === 'User'
-      ? sheet.getRange(adminDataRowStart, adminColAdmins, sheet.getLastRow(), adminUserColsTotal).getValues().flat().filter(String)
-      : sheet.getRange(adminDataRowStart, roleCol, sheet.getLastRow()).getValues().flat().filter(String);
+      ? sheet.getRange(
+            SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START,
+            SHEET_CONFIG.ADMIN.COLUMNS.ADMINS,
+            lastRow,
+            SHEET_CONFIG.ADMIN.POSITIONS.USERS_TOTAL_COLS
+          ).getValues()
+          .flat()
+          .filter(String)
+      : sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, lastRow).getValues().flat().filter(String);
 
-    // Show alert and exit if current user is not admin
+    // Show alert and exit if current user is not Admin
     if (!roleEmails.includes(currentUserEmail)) {
       const response = ui.alert(`ERROR: \n\n You do not have ${role} access. Please request ${role} access from the current Admin to run this function.`);
       return false;
@@ -68,13 +76,13 @@ function getEmailsByRole(role) {
   try {
     // Get the Admin sheet
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(adminSheetName);
+    const sheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
 
     // Get role column from Admin sheet
     const roleCol = getRoleCol(role);
 
     // Get emails from the role column
-    const emails = sheet.getRange(adminDataRowStart, roleCol, sheet.getLastRow())
+    const emails = sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, sheet.getLastRow())
                      .getValues()
                      .flat()
                      .filter(email => email);
@@ -86,10 +94,6 @@ function getEmailsByRole(role) {
   }
 }
 
-function testAdd() {
-  addAccess('Admin', 'admin1@gmail.com');
-}
-
 /**
  * Add a role access.
  * @param {string} role - The role type.
@@ -97,12 +101,9 @@ function testAdd() {
  */
 function addAccess(role, emailAddresses) {
   try {
-    // Run only if current user has admin access
-    // if (!checkAccess('Admin')) return;
-
     // Get the Admin sheet
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(adminSheetName);
+    const sheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
 
     // Get role column from Admin sheet
     const roleCol = getRoleCol(role);
@@ -135,7 +136,7 @@ function addAccess(role, emailAddresses) {
     //Add valid Emails to sheet
     if (validEmails.length > 0) {
       validEmails.forEach(email => {
-        var lastRow = getColumnLastRow(adminSheetName, roleCol, adminDataRowStart);
+        var lastRow = getColumnLastRow(SHEET_CONFIG.ADMIN.NAME, roleCol, SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START);
         sheet.getRange(lastRow, roleCol).setValue(email);
       });
 
@@ -143,7 +144,7 @@ function addAccess(role, emailAddresses) {
       SpreadsheetApp.flush();
 
       // Update Sheet protection
-      updateSheetsProtection();
+      // updateSheetsProtection();
     }
 
     // Throw error for invalid users
@@ -167,13 +168,13 @@ function removeAccess(role, email) {
 
     // Get the Admin sheet
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(adminSheetName);
+    const sheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
 
     // Get role column from Admin sheet
     const roleCol = getRoleCol(role);
 
     // Get existing user emails
-    const data = sheet.getRange(adminDataRowStart, roleCol, sheet.getLastRow())
+    const data = sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, sheet.getLastRow())
                       .getValues()
                       .flat()
                       .filter(name => name);
@@ -183,14 +184,14 @@ function removeAccess(role, email) {
 
     // Update the role column by removing the email
     while (updatedValues.length < data.length) updatedValues.push('');
-    sheet.getRange(adminDataRowStart, roleCol, updatedValues.length, 1)
+    sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, updatedValues.length, 1)
         .setValues(updatedValues.map(value => [value]));
 
     // Apply all pending Spreadsheet changes before proceeding
     SpreadsheetApp.flush();
 
     // Update Sheet protection
-    updateSheetsProtection();
+    // updateSheetsProtection();
   } catch (error) {
     Logger.log(error.stack);
   }
@@ -202,10 +203,16 @@ function removeAccess(role, email) {
 function updateSheetsProtection() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(adminSheetName);
+    const sheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
 
     // Get Admins
-    const admins = sheet.getRange(adminDataRowStart, adminColAdmins, sheet.getLastRow()).getValues().flat().filter(String);
+    const admins = sheet.getRange(
+                      SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START,
+                      SHEET_CONFIG.ADMIN.COLUMNS.ADMINS,
+                      sheet.getLastRow()
+                    ).getValues()
+                    .flat()
+                    .filter(String);
 
     // Protect all sheets and give only Admins access
     ss.getSheets().forEach(sheet => {
@@ -250,8 +257,14 @@ function protectSheets(sheetName, editRowStart, editColStart, editTotalColumns) 
     if (!sheet) throw new Error('Sheet with name ' + sheetName + ' not found.');
 
     // Get Users
-    const adminSheet = ss.getSheetByName(adminSheetName);
-    const users = adminSheet.getRange(adminDataRowStart, adminColUsers, adminSheet.getLastRow()).getValues().flat().filter(String);
+    const adminSheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
+    const users = adminSheet.getRange(
+                      SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START,
+                      SHEET_CONFIG.ADMIN.COLUMNS.USERS,
+                      adminSheet.getLastRow()
+                    ).getValues()
+                    .flat()
+                    .filter(String);
 
     // Allow users to edit the specified range
     const protection = sheet.protect().setDescription('Admin access only');

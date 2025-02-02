@@ -1,12 +1,14 @@
 // Sheet Functions
 // ----------------------------------------------------------------------------------------------------------
 //
-// updateFont()                                   - Set default font for the whole Spreadsheet
-// setFontSize(sheetName)                         - Set font size for a sheet
+// updateFont()                                   - Set default font for the whole Spreadsheet.
+// setFontSize(sheetName)                         - Set font size for a sheet.
+// resetSheet(sheetName, clearType = 'formats')   - Insert sheet, if it does not exist else clear formatting and data.
 // clearSheetContents(sheetName)                  - Clear only the data contents of a sheet, not the formatting.
 // hideSheet(sheetName)                           - Hide sheet
 // activateCell(sheetName, cell)                  - Activate a given cell in a sheet.
 // getColumnLastRow(sheetName, column, rowStart)  - Get the last empty row in a column of a given sheet.
+// showSidebar(sidebarHtml, sidebarTitle)         - Show sidebar form.
 //
 // ----------------------------------------------------------------------------------------------------------
 
@@ -51,14 +53,15 @@ function setFontSize(sheetName) {
 function resetSheet(sheetName, clearType = 'formats') {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(sheetName);
+    let sheet = ss.getSheetByName(sheetName);
 
     // Insert new sheet if not exists
     if (!sheet) {
       ss.insertSheet(sheetName);
+      sheet = ss.getSheetByName(sheetName);
 
       // Update protection
-      updateSheetsProtection();
+      // updateSheetsProtection(); <------------------------------------------------------
     } else {
       // Clear based on clearType parameter
       switch(clearType) {
@@ -80,6 +83,8 @@ function resetSheet(sheetName, clearType = 'formats') {
 
     // Set Font Size
     setFontSize(sheetName);
+
+    return sheet;
   } catch (error) {
     Logger.log(error.stack);
   }
@@ -153,23 +158,30 @@ function getColumnLastRow(sheetName, column, rowStart) {
 
     // Get range values
     const lastRow = sheet.getLastRow();
-    const range = sheet.getRange(rowStart, column, lastRow);
+
+    // Calculate the correct range height
+    const rangeHeight = lastRow - rowStart + 1;
+
+    // Get range values with correct height
+    const range = sheet.getRange(rowStart, column, rangeHeight);
     const values = range.getValues();
 
-    // Reverse the array
+    // Reverse the array and find the first non-empty cell
     const reversedValues = values.reverse();
     const offset = reversedValues.findIndex(c => c[0] !== '');
 
     if (offset === -1) {
-      return rowStart - 1;
+      return rowStart;
     }
 
-    // Get column last row value
-    const columnLastRow = ((lastRow + rowStart) - offset) ;
+    // Get last filled row
+    const lastFilledRow = lastRow - offset;
 
-    return columnLastRow;
+    // Return the next empty row
+    return lastFilledRow + 1;
   } catch (error) {
     Logger.log(error.stack);
+    return rowStart;
   }
 }
 
@@ -184,8 +196,6 @@ function toggleSheetFilter(sheetName, headerRow, filterState) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(sheetName);
-    // const summarySheetName = CONFIG.sheets.summarySheetName;
-    // const dataHeaderRow = CONFIG.sheets.dataHeaderRow;
 
     if (!sheet) {
       throw new Error(`Sheet "${sheetName}" not found`);
@@ -210,21 +220,5 @@ function toggleSheetFilter(sheetName, headerRow, filterState) {
   } catch (error) {
     Logger.log(`Error setting filter:\n${error.stack}`);
     throw error;
-  }
-}
-
-/**
- * Show sidebar form.
- * @param {string} sidebarHtml - The html element to show as sidebar.
- * @param {string} sidebarTitle - The title of the sidebar.
- */
-function showSidebar(sidebarHtml, sidebarTitle) {
-  try {
-    // Show Sidebar
-    const ui = SpreadsheetApp.getUi();
-    const html = HtmlService.createHtmlOutputFromFile(sidebarHtml).setTitle(sidebarTitle);
-    ui.showSidebar(html);
-  } catch (error) {
-    Logger.log(error.stack);
   }
 }

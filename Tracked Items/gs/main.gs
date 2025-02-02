@@ -6,32 +6,33 @@
 function getAttributeData(type) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const dataSheet = ss.getSheetByName('Data');
-    const adminSheet = ss.getSheetByName('Admin');
-    const data = dataSheet.getDataRange().getValues();
-    const headers = data[0];
+    const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
+    const dropdownsSheet = ss.getSheetByName(SHEET_CONFIG.DROPDOWNS.NAME);
+
+    // Get data
+    const data = dataSheet.getRange(
+                  SHEET_CONFIG.DATA.POSITIONS.DATA_START_ROW,
+                  SHEET_CONFIG.DATA.POSITIONS.START_COL,
+                  dataSheet.getLastRow(),
+                  SHEET_CONFIG.DATA.COLUMNS.INDEX.LAST_UPDATED
+                ).getValues();
 
     // Define column configurations
     const columnConfig = {
-      common: [
-        'SHORT NAME',
-        'COMMON DESCRIPTION',
-        'VENDOR',
-        'GROUP FUNCTION',
-        'FAMILY',
-        'SUBFAMILY',
-        'PLANNED START DATE',
-        'PLANNED END DATE',
-        'BUDGET START DATE',
-        'BUDGET END DATE',
-        'POWER'
+      COMMON: [
+        'SHORT NAME','COMMON DESCRIPTION','VENDOR','MATERIAL GROUP','GROUP FUNCTION','FAMILY',
+        'SUBFAMILY','PLANNED START DATE','PLANNED END DATE','BUDGETLINEITEM','BUDGETLINEITEM2',
+        'BUDGET START DATE','BUDGET END DATE','PARENT COMMON ID','TRACKED SET','FREQ','POWER',
+        'INTEGRATED','TECH'
       ],
-      item: [
-        'ITEM DESCRIPTION'
+      ITEM: [
+        'ITEM DESCRIPTION','DP HIERARCHY'
       ]
     };
 
     // Get column indices
+    // const headers = data[0];
+    const headers = SHEET_CONFIG.DATA.HEADERS;
     const itemIdCol = headers.indexOf('ITEM ID');
     const commonIdCol = headers.indexOf('COMMON ID');
 
@@ -39,33 +40,51 @@ function getAttributeData(type) {
     const selectedColumns = columnConfig[type];
 
     // Get unique IDs based on type
-    const ids = [...new Set(data.slice(1).map(row => row[type === 'common' ? commonIdCol : itemIdCol]))];
+    const ids = [...new Set(data.map(row => row[type === 'COMMON' ? commonIdCol : itemIdCol]))];
 
-    // Configure attributes based on column names
     const attributes = selectedColumns.map(header => {
       const colIndex = headers.indexOf(header);
       return {
         name: header,
         columnIndex: colIndex,
         type: header.toLowerCase().includes('date') ? 'date' :
-              ['VENDOR', 'GROUP FUNCTION', 'FAMILY', 'SUBFAMILY'].includes(header) ? 'dropdown' : 'text',
-        maxLength: 100
+              ['VENDOR','MATERIAL GROUP','GROUP FUNCTION','FAMILY','SUBFAMILY',
+              'DP HIERARCHY','TRACKED SET','FREQ','POWER','INTEGRATED','TECH'].includes(header) ? 'dropdown' : 'text',
+        maxLength: SHEET_CONFIG.CHAR_LIMITS[header.replace(/\s+/g, '_')] || 100
       };
     });
 
     // Get dropdown values from Admin sheet if needed
     const dropdowns = {};
-    if (type === 'common') {
+    if (type === 'COMMON') {
       // Get dropdown values for each category from Admin sheet
       const dropdownColumns = {
-        'VENDOR': 3,        // Column C
-        'GROUP FUNCTION': 4, // Column D
-        'FAMILY': 5,        // Column E
-        'SUBFAMILY': 6      // Column F
+        'VENDOR'          : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.VENDOR,
+        'MATERIAL GROUP'  : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.MATERIAL_GROUP,
+        'GROUP FUNCTION'  : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.GROUP_FUNCTION,
+        'FAMILY'          : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.FAMILY,
+        'SUBFAMILY'       : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.SUBFAMILY,
+        'TRACKED SET'     : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.TRACKED_SET,
+        'FREQ'            : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.FREQ,
+        'POWER'           : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.POWER,
+        'INTEGRATED'      : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.INTEGRATED,
+        'TECH'            : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.TECH
       };
 
       Object.entries(dropdownColumns).forEach(([field, col]) => {
-        const values = adminSheet.getRange(3, col, adminSheet.getLastRow()).getValues()
+        const values = dropdownsSheet.getRange(2, col, dropdownsSheet.getLastRow()).getValues()
+          .map(row => row[0])
+          .filter(Boolean);
+        dropdowns[field] = values;
+      });
+    } else if (type === 'item') {
+      // Get dropdown values for each category from Admin sheet
+      const dropdownColumns = {
+        'DP HIERARCHY'    : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.DP_HIERARCHY
+      };
+
+      Object.entries(dropdownColumns).forEach(([field, col]) => {
+        const values = dropdownsSheet.getRange(2, col, dropdownsSheet.getLastRow()).getValues()
           .map(row => row[0])
           .filter(Boolean);
         dropdowns[field] = values;
@@ -75,7 +94,8 @@ function getAttributeData(type) {
     return {
       ids: ids,
       attributes: attributes,
-      dropdowns: dropdowns
+      dropdowns: dropdowns,
+      config: SHEET_CONFIG.ARCHIVED_FIELDS
     };
 
   } catch (error) {
@@ -102,27 +122,36 @@ function getCurrentValues(type, id) {
         'SHORT NAME',
         'COMMON DESCRIPTION',
         'VENDOR',
+        'MATERIAL GROUP',
         'GROUP FUNCTION',
         'FAMILY',
         'SUBFAMILY',
         'PLANNED START DATE',
         'PLANNED END DATE',
+        'BUDGETLINEITEM',
+        'BUDGETLINEITEM2',
         'BUDGET START DATE',
         'BUDGET END DATE',
-        'POWER'
+        'PARENT COMMON ID',
+        'TRACKED SET',
+        'FREQ',
+        'POWER',
+        'INTEGRATED',
+        'TECH'
       ],
       item: [
-        'ITEM DESCRIPTION'
+        'ITEM DESCRIPTION',
+        'DP HIERARCHY'
       ]
     };
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const dataSheet = ss.getSheetByName(dataSheetName);
+    const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
     const data = dataSheet.getDataRange().getDisplayValues();
     const headers = data[0];
 
     // Get column indices
-    const idCol = headers.indexOf(type === 'common' ? 'COMMON ID' : 'ITEM ID');
+    const idCol = headers.indexOf(type === 'COMMON' ? 'COMMON ID' : 'ITEM ID');
     const selectedColumns = columnConfig[type];
 
     // Find row with matching ID
@@ -157,53 +186,55 @@ function getCurrentValues(type, id) {
 function submitAttributeRequest(formData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const dataSheet = ss.getSheetByName('Data');
-    const requestsSheet = ss.getSheetByName('Requests');
-    const headers = dataSheet.getRange(1, 1, 1, dataSheet.getLastColumn()).getValues()[0];
+    const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
+    const inputSheet = ss.getSheetByName(SHEET_CONFIG.INPUT.NAME);
+    const requestsSheet = ss.getSheetByName(SHEET_CONFIG.REQUESTS.NAME);
+    const headers = SHEET_CONFIG.DATA.HEADERS;
 
     const timestamp = new Date().toISOString();
     const userEmail = Session.getActiveUser().getEmail();
-
-    const dateColumns = [
-      'PLANNED START DATE',
-      'PLANNED END DATE',
-      'BUDGET START DATE',
-      'BUDGET END DATE'
-    ];
-
-    const data = dataSheet.getDataRange().getValues();
-    const idCol = headers.indexOf(formData.type === 'common' ? 'COMMON ID' : 'ITEM ID');
-    const rowIndex = data.findIndex(row => row[idCol] === formData.id);
-    if (rowIndex === -1) throw new Error('ID not found');
+    const idColName = formData.type === 'COMMON' ? 'COMMON ID' : 'ITEM ID';
+    const idColIndex = headers.indexOf(idColName);
 
     Object.entries(formData.attributes).forEach(([key, newValue]) => {
-      const attrName = key.replace(/-/g, ' ').toUpperCase();
-      const colIndex = headers.indexOf(attrName);
-      const currentValue = data[rowIndex][colIndex];
+      const headerName = key.replace(/-/g, ' ').toUpperCase();
+      const colIndex = headers.indexOf(headerName);
 
-      // Only process if value has changed
-      if (currentValue !== newValue) {
-        // Handle null dates
-        if (dateColumns.includes(attrName) && (!newValue || newValue.toLowerCase() === 'null')) {
-          newValue = '';
-        }
+      // Get first matching row for requests tab
+      const data = dataSheet.getDataRange().getValues();
+      const firstMatchingRow = data.find(row => row[idColIndex] === formData.id);
 
-        // Add note and highlight
-        const range = dataSheet.getRange(rowIndex + 1, colIndex + 1);
-        range.setNote(`User: ${userEmail}\nChange: ${currentValue} → ${newValue}`)
-              .setBackground('#ffe066');
-
-        // Add to requests sheet
+      if (firstMatchingRow && firstMatchingRow[colIndex] !== newValue) {
+        // Single request entry
         requestsSheet.appendRow([
           timestamp,
           userEmail,
           'Pending',
           formData.id,
           formData.type,
-          attrName,
-          currentValue || '',
-          newValue || ''
+          headerName,
+          firstMatchingRow[colIndex] || '',
+          newValue || '',
+          formData.notes || ''
         ]);
+
+        // Apply changes to all matching rows in both sheets
+        [dataSheet, inputSheet].forEach(sheet => {
+          const sheetData = sheet.getDataRange().getValues();
+          sheetData.forEach((row, rowIndex) => {
+            if (row[idColIndex] === formData.id) {
+              // Highlight ID column
+              sheet.getRange(rowIndex + 1, idColIndex + 1).setBackground('#ffe066');
+
+              // Note and highlight for changed column
+              const range = sheet.getRange(rowIndex + 1, colIndex + 1);
+              const note = `User: ${userEmail}\nChange: ${row[colIndex]} → ${newValue}${
+                formData.notes ? '\n\nNotes: ' + formData.notes : ''
+              }`;
+              range.setNote(note).setBackground('#ffe066');
+            }
+          });
+        });
       }
     });
 
@@ -216,33 +247,175 @@ function submitAttributeRequest(formData) {
   }
 }
 
-// /**
-//  * Submit attribute update request
-//  * @param {Object} formData Form data containing type, id and attributes
-//  */
+
 // function submitAttributeRequest(formData) {
 //   try {
 //     const ss = SpreadsheetApp.getActiveSpreadsheet();
-//     const changelogSheet = ss.getSheetByName('Changelog');
+//     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
+//     const requestsSheet = ss.getSheetByName(SHEET_CONFIG.REQUESTS.NAME);
+//     const headers = SHEET_CONFIG.DATA.HEADERS;
 
-//     // Get current timestamp and user email
 //     const timestamp = new Date().toISOString();
 //     const userEmail = Session.getActiveUser().getEmail();
 
-//     // Format changelog entry
-//     const changelogRow = [
-//       timestamp,
-//       userEmail,
-//       formData.type,
-//       formData.id,
-//       JSON.stringify(formData.attributes),
-//       'Pending'
-//     ];
+//     const data = dataSheet.getDataRange().getValues();
+//     const commonIdCol = headers.indexOf('COMMON ID');
+//     const itemIdCol = headers.indexOf('ITEM ID');
 
-//     // Append to changelog
-//     changelogSheet.appendRow(changelogRow);
+//     Object.entries(formData.attributes).forEach(([key, newValue]) => {
+//       const headerName = key.replace(/-/g, ' ').toUpperCase();
+//       const colIndex = headers.indexOf(headerName);
 
+//       // Find rows to update based on attribute level
+//       const rowsToUpdate = [];
+//       if (formData.type === 'COMMON') {
+//         // For common level, get all rows with same COMMON ID
+//         data.forEach((row, idx) => {
+//           if (row[commonIdCol] === formData.id) {
+//             rowsToUpdate.push(idx);
+//           }
+//         });
+//       } else {
+//         // For item level, get specific ITEM ID row
+//         const rowIndex = data.findIndex(row => row[itemIdCol] === formData.id);
+//         if (rowIndex !== -1) rowsToUpdate.push(rowIndex);
+//       }
+
+//       if (rowsToUpdate.length === 0) throw new Error('ID not found');
+
+//       rowsToUpdate.forEach(rowIndex => {
+//         const currentValue = data[rowIndex][colIndex];
+//         if (currentValue !== newValue) {
+//           const range = dataSheet.getRange(rowIndex + 1, colIndex + 1);
+//           range.setNote(`User: ${userEmail}\nChange: ${currentValue} → ${newValue}`)
+//                .setBackground('#ffe066');
+
+//           requestsSheet.appendRow([
+//             timestamp,
+//             userEmail,
+//             'Pending',
+//             formData.id,
+//             formData.type,
+//             headerName,
+//             currentValue || '',
+//             newValue || '',
+//             ''
+//           ]);
+//         }
+//       });
+//     });
+
+//     SpreadsheetApp.flush();
 //     return true;
+
+//   } catch (error) {
+//     Logger.log('Error in submitAttributeRequest: ' + error.stack);
+//     throw new Error('Failed to submit request: ' + error.message);
+//   }
+// }
+// function submitAttributeRequest(formData) {
+//   try {
+//     const ss = SpreadsheetApp.getActiveSpreadsheet();
+//     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
+//     const inputSheet = ss.getSheetByName(SHEET_CONFIG.INPUT.NAME);
+//     const requestsSheet = ss.getSheetByName(SHEET_CONFIG.REQUESTS.NAME);
+//     const headers = SHEET_CONFIG.DATA.HEADERS;
+
+//     const timestamp = new Date().toISOString();
+//     const userEmail = Session.getActiveUser().getEmail();
+//     const idColName = formData.type === 'COMMON' ? 'COMMON ID' : 'ITEM ID';
+//     const idColIndex = headers.indexOf(idColName);
+
+//     // Function to apply highlighting and notes
+//     const applyChanges = (sheet, rowIndex, colIndex, currentValue, newValue) => {
+//       const range = sheet.getRange(rowIndex + 1, colIndex + 1);
+//       const note = `User: ${userEmail}\nChange: ${currentValue} → ${newValue}${
+//         formData.notes ? '\n\nNotes: ' + formData.notes : ''
+//       }`;
+//       range.setNote(note).setBackground('#ffe066');
+//     };
+
+//     // // Process changes in both sheets
+//     // [dataSheet, inputSheet].forEach(sheet => {
+//     //   const data = sheet.getDataRange().getValues();
+
+//     //   // Highlight ID column
+//     //   data.forEach((row, rowIndex) => {
+//     //     if (row[idColIndex] === formData.id) {
+//     //       applyChanges(sheet, rowIndex, idColIndex, formData.id, formData.id);
+
+//     //       // Process attribute changes
+//     //       Object.entries(formData.attributes).forEach(([key, newValue]) => {
+//     //         const headerName = key.replace(/-/g, ' ').toUpperCase();
+//     //         const colIndex = headers.indexOf(headerName);
+//     //         const currentValue = row[colIndex];
+
+//     //         if (currentValue !== newValue) {
+//     //           applyChanges(sheet, rowIndex, colIndex, currentValue, newValue);
+
+//     //           // Only add to requests sheet once (for data sheet)
+//     //           if (sheet === dataSheet) {
+//     //             requestsSheet.appendRow([
+//     //               timestamp,
+//     //               userEmail,
+//     //               'Pending',
+//     //               formData.id,
+//     //               formData.type,
+//     //               headerName,
+//     //               currentValue || '',
+//     //               newValue || '',
+//     //               formData.notes || ''
+//     //             ]);
+//     //           }
+//     //         }
+//     //       });
+//     //     }
+//     //   });
+//     // });
+
+//     [dataSheet, inputSheet].forEach(sheet => {
+//       const data = sheet.getDataRange().getValues();
+
+//       // Only highlight ID column
+//       data.forEach((row, rowIndex) => {
+//         if (row[idColIndex] === formData.id) {
+//           sheet.getRange(rowIndex + 1, idColIndex + 1).setBackground('#ffe066');
+
+//           // Process attribute changes with notes
+//           Object.entries(formData.attributes).forEach(([key, newValue]) => {
+//             const headerName = key.replace(/-/g, ' ').toUpperCase();
+//             const colIndex = headers.indexOf(headerName);
+//             const currentValue = row[colIndex];
+
+//             if (currentValue !== newValue) {
+//               const range = sheet.getRange(rowIndex + 1, colIndex + 1);
+//               const note = `User: ${userEmail}\nChange: ${currentValue} → ${newValue}${
+//                 formData.notes ? '\n\nNotes: ' + formData.notes : ''
+//               }`;
+//               range.setNote(note).setBackground('#ffe066');
+
+//               if (sheet === dataSheet) {
+//                 requestsSheet.appendRow([
+//                   timestamp,
+//                   userEmail,
+//                   'Pending',
+//                   formData.id,
+//                   formData.type,
+//                   headerName,
+//                   currentValue || '',
+//                   newValue || '',
+//                   formData.notes || ''
+//                 ]);
+//               }
+//             }
+//           });
+//         }
+//       });
+//     });
+
+//     SpreadsheetApp.flush();
+//     return true;
+
 //   } catch (error) {
 //     Logger.log('Error in submitAttributeRequest: ' + error.stack);
 //     throw new Error('Failed to submit request: ' + error.message);
@@ -338,7 +511,7 @@ function formatNewRequestRow(sheet, rowNum) {
  */
 function getPendingRequests() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const requestsSheet = ss.getSheetByName('Change Requests');
+  const requestsSheet = ss.getSheetByName('Requests');
 
   if (!requestsSheet) return [];
 
@@ -346,14 +519,14 @@ function getPendingRequests() {
   const headers = data[0];
 
   return data.slice(1)
-    .filter(row => row[headers.indexOf('Status')] === 'Pending')
+    .filter(row => row[headers.indexOf('STATUS')] === 'Pending')
     .map(row => ({
-      timestamp: row[headers.indexOf('Timestamp')],
-      type: row[headers.indexOf('Type')],
+      timestamp: row[headers.indexOf('TIMESTAMP')],
+      type: row[headers.indexOf('ATTRIBUTE LEVEL')],
       id: row[headers.indexOf('ID')],
-      attribute: row[headers.indexOf('Attribute')],
-      currentValue: row[headers.indexOf('Current Value')],
-      requestedValue: row[headers.indexOf('Requested Value')]
+      attribute: row[headers.indexOf('ATTRIBUTE')],
+      currentValue: row[headers.indexOf('CURRENT VALUE')],
+      requestedValue: row[headers.indexOf('REQUESTED VALUE')]
     }));
 }
 
@@ -381,7 +554,7 @@ function handleChangeRequest(index, action) {
   if (action === 'approve') {
     // Update data
     const dataHeaders = dataSheet.getRange(1, 1, 1, dataSheet.getLastColumn()).getValues()[0];
-    const idCol = dataHeaders.indexOf(request[headers.indexOf('Type')] === 'common' ? 'Common ID' : 'Item ID');
+    const idCol = dataHeaders.indexOf(request[headers.indexOf('Type')] === 'COMMON' ? 'Common ID' : 'Item ID');
     const attrCol = dataHeaders.indexOf(request[headers.indexOf('Attribute')]);
 
     const dataRows = dataSheet.getDataRange().getValues();
@@ -396,7 +569,7 @@ function handleChangeRequest(index, action) {
   } else {
     // Add rejection note
     const dataHeaders = dataSheet.getRange(1, 1, 1, dataSheet.getLastColumn()).getValues()[0];
-    const idCol = dataHeaders.indexOf(request[headers.indexOf('Type')] === 'common' ? 'Common ID' : 'Item ID');
+    const idCol = dataHeaders.indexOf(request[headers.indexOf('Type')] === 'COMMON' ? 'Common ID' : 'Item ID');
     const attrCol = dataHeaders.indexOf(request[headers.indexOf('Attribute')]);
 
     const dataRows = dataSheet.getDataRange().getValues();

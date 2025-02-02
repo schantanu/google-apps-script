@@ -13,6 +13,9 @@
       h4 {
         font-weight: bold;
       }
+      h6 {
+        font-weight: bold;
+      }
       p {
         font-size: 12.4px;
       }
@@ -41,7 +44,7 @@
       <hr>
 
       <div class="mt-3 mb-3">
-        <h4 class="mt-3" id="form-header">Reset Sheet</h4>
+        <h4 class="mt-3" id="form-header">Reset Sheets</h4>
         <p>In case of encountering any error on a Sheet, reset the sheet by selecting the sheet from the below dropdown.</p>
         <p><b>⚠️ Please make sure to backup any data before performing this operation, as it will clear the data of the sheet.</b></p>
       </div>
@@ -53,10 +56,11 @@
           <label for="sheet-select" class="form-label required">Select Sheet</label>
           <select class="form-select" id="sheet-select" required>
             <option value="" selected disabled>Select sheet</option>
-            <option value="Data">Data</option>
-            <option value="Admin">Admin</option>
             <option value="Input">Input</option>
             <option value="Requests">Requests</option>
+            <option value="Data">Data</option>
+            <option value="Dropdowns">Dropdowns</option>
+            <option value="Admin">Admin</option>
           </select>
         </div>
         <div class="mt-3 d-grid gap-2">
@@ -116,10 +120,11 @@
         $('#confirm-reset-button').on('click', function() {
           const sheetName = $('#sheet-select').val();
           const setupFunctions = {
-            'Data'      : 'setupSheetData',
-            'Admin'     : 'setupSheetAdmin',
             'Input'     : 'setupSheetInput',
-            'Requests'  : 'setupSheetRequests'
+            'Requests'  : 'setupSheetRequests',
+            'Data'      : 'setupSheetData',
+            'Dropdowns' : 'setupSheetDropdowns',
+            'Admin'     : 'setupSheetAdmin',
           };
 
           if (setupFunctions[sheetName]) {

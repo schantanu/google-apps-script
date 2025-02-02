@@ -37,11 +37,9 @@
 
       <div class="mt-3 mb-3">
         <h5>User Requests</h5>
-        <p>Manage user and admin roles to access the scripts in this Google Sheet.</p>
-        <h6 class="mt-3">1. Add Role</h6>
-        <p>Add users to the Google Sheet to access the User or Administrator features.</p>
+        <p>Review user requests for attribute changes.</p>
         <div class="mt-2 mb-2 d-grid gap-2">
-          <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showAddRoleSidebar')">Add Role</button>
+          <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showAddRoleSidebar')">Review Requests</button>
         </div>
       </div>
 
@@ -68,13 +66,13 @@
       <div class="mt-3 mb-3">
         <h5>Role Management</h5>
         <p>Manage user and admin roles to access the scripts in this Google Sheet.</p>
-        <h6 class="mt-3">1. Add Role</h6>
+        <h6 class="mt-3">Add Role</h6>
         <p>Add users to the Google Sheet to access the User or Administrator features.</p>
         <div class="mt-2 mb-2 d-grid gap-2">
           <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showAddRoleSidebar')">Add Role</button>
         </div>
-        <h6 class="mt-3">2. Remove Role</h6>
-        <p>Remove existing Users or Administrators roles from the Google Sheet.</p>
+        <h6 class="mt-3">Remove Role</h6>
+        <p>Remove existing Users or Administrators roles from the Google Sheet and revoke access.</p>
         <div class="mt-2 mb-2 d-grid gap-2">
           <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showRemoveRoleSidebar')">Remove Role</button>
         </div>
@@ -83,10 +81,10 @@
       <hr>
 
       <div class="mt-3 mb-3">
-        <h5>Reset Sheet</h5>
+        <h5>Reset Sheets</h5>
         <p>Reset a sheet to its initial state, if encountering any issues.</p>
         <div class="mt-2 mb-2 d-grid gap-2">
-          <button class="btn btn-sm btn-danger" onclick="toggleSpinner(this, 'showResetSheetSidebar')">Reset Sheet</button>
+          <button class="btn btn-sm btn-danger" onclick="toggleSpinner(this, 'showResetSheetSidebar')">Reset Sheets</button>
         </div>
       </div>
 
@@ -95,17 +93,20 @@
     <script>
       function toggleSpinner(btn, fn, param) {
         const btnText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
-        btn.disabled = true;
+        // Disable all buttons
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => button.disabled = true);
 
-        const resetButton = () => {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+
+        const resetButtons = () => {
+          buttons.forEach(button => button.disabled = false);
           btn.innerHTML = btnText;
-          btn.disabled = false;
-        }
+        };
 
         google.script.run
-          .withSuccessHandler(resetButton)
-          .withFailureHandler(resetButton)[fn](param);
+          .withSuccessHandler(resetButtons)
+          .withFailureHandler(resetButtons)[fn](param);
       }
     </script>
   </body>

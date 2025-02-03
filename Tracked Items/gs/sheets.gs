@@ -71,8 +71,14 @@ function resetSheet(sheetName, clearType = 'formats') {
           break;
         case 'formats':
         default:
-          // Clear formatting only
-          sheet.clearFormats();
+          // Get sheet config for data start row
+          const sheetConfig = SHEET_CONFIG[sheetName.toUpperCase()];
+          if (!sheetConfig) throw new Error(`Sheet config not found for ${sheetName}`);
+          const defaultDataStartRow = 2;
+          const dataStartRow = sheetConfig.POSITIONS.DATA_START_ROW || defaultDataStartRow;
+
+          // Clear formatting only for header section
+          sheet.getRange(1, 1, dataStartRow - 1, sheet.getMaxColumns()).clearFormat();
       }
     }
 

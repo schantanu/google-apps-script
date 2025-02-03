@@ -17,8 +17,8 @@
  */
 function getRoleCol(role) {
   try {
-    return (role === 'Admin') ? SHEET_CONFIG.ADMIN.COLUMNS.ADMINS
-      : (role === 'User') ? SHEET_CONFIG.ADMIN.COLUMNS.USERS
+    return (role === 'Admin') ? SHEET_CONFIG.ADMIN.COLUMNS.INDEX.ADMINS
+      : (role === 'User') ? SHEET_CONFIG.ADMIN.COLUMNS.INDEX.USERS
       : null;
   } catch (error) {
     Logger.log(error.stack);
@@ -45,14 +45,14 @@ function checkAccess(role) {
     const lastRow = sheet.getLastRow();
     const roleEmails = role === 'User'
       ? sheet.getRange(
-            SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START,
-            SHEET_CONFIG.ADMIN.COLUMNS.ADMINS,
+            SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW,
+            SHEET_CONFIG.ADMIN.COLUMNS.INDEX.ADMINS,
             lastRow,
             SHEET_CONFIG.ADMIN.POSITIONS.USERS_TOTAL_COLS
           ).getValues()
           .flat()
           .filter(String)
-      : sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, lastRow).getValues().flat().filter(String);
+      : sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW, roleCol, lastRow).getValues().flat().filter(String);
 
     // Show alert and exit if current user is not Admin
     if (!roleEmails.includes(currentUserEmail)) {
@@ -82,7 +82,7 @@ function getEmailsByRole(role) {
     const roleCol = getRoleCol(role);
 
     // Get emails from the role column
-    const emails = sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, sheet.getLastRow())
+    const emails = sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW, roleCol, sheet.getLastRow())
                      .getValues()
                      .flat()
                      .filter(email => email);
@@ -136,7 +136,7 @@ function addAccess(role, emailAddresses) {
     //Add valid Emails to sheet
     if (validEmails.length > 0) {
       validEmails.forEach(email => {
-        var lastRow = getColumnLastRow(SHEET_CONFIG.ADMIN.NAME, roleCol, SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START);
+        var lastRow = getColumnLastRow(SHEET_CONFIG.ADMIN.NAME, roleCol, SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW);
         sheet.getRange(lastRow, roleCol).setValue(email);
       });
 
@@ -174,7 +174,7 @@ function removeAccess(role, email) {
     const roleCol = getRoleCol(role);
 
     // Get existing user emails
-    const data = sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, sheet.getLastRow())
+    const data = sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW, roleCol, sheet.getLastRow())
                       .getValues()
                       .flat()
                       .filter(name => name);
@@ -184,7 +184,7 @@ function removeAccess(role, email) {
 
     // Update the role column by removing the email
     while (updatedValues.length < data.length) updatedValues.push('');
-    sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START, roleCol, updatedValues.length, 1)
+    sheet.getRange(SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW, roleCol, updatedValues.length, 1)
         .setValues(updatedValues.map(value => [value]));
 
     // Apply all pending Spreadsheet changes before proceeding
@@ -207,8 +207,8 @@ function updateSheetsProtection() {
 
     // Get Admins
     const admins = sheet.getRange(
-                      SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START,
-                      SHEET_CONFIG.ADMIN.COLUMNS.ADMINS,
+                      SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW,
+                      SHEET_CONFIG.ADMIN.COLUMNS.INDEX.ADMINS,
                       sheet.getLastRow()
                     ).getValues()
                     .flat()
@@ -259,8 +259,8 @@ function protectSheets(sheetName, editRowStart, editColStart, editTotalColumns) 
     // Get Users
     const adminSheet = ss.getSheetByName(SHEET_CONFIG.ADMIN.NAME);
     const users = adminSheet.getRange(
-                      SHEET_CONFIG.ADMIN.POSITIONS.DATA_ROW_START,
-                      SHEET_CONFIG.ADMIN.COLUMNS.USERS,
+                      SHEET_CONFIG.ADMIN.POSITIONS.DATA_START_ROW,
+                      SHEET_CONFIG.ADMIN.COLUMNS.INDEX.USERS,
                       adminSheet.getLastRow()
                     ).getValues()
                     .flat()

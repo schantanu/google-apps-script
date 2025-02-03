@@ -7,25 +7,25 @@ function setupSheetAdmin() {
     const sheet = resetSheet(SHEET_CONFIG.ADMIN.NAME);
 
     // Set Headers
-    sheet.getRange(SHEET_CONFIG.ADMIN.RANGES.USERS_HEADER)
-      .setValue(SHEET_CONFIG.ADMIN.HEADERS.USERS_HEADER)
-      .setBackground(SHEET_CONFIG.ADMIN.COLORS.USERS_HEADER)
+    sheet.getRange(SHEET_CONFIG.ADMIN.RANGES.HEADER)
+      .setValue(SHEET_CONFIG.ADMIN.COLUMNS.HEADERS.HEADER)
+      .setBackground(SHEET_CONFIG.ADMIN.COLORS.HEADER)
       .setFontWeight('bold')
       .setHorizontalAlignment('center')
       .mergeAcross();
 
     // Set Subheaders
-    sheet.getRange(SHEET_CONFIG.ADMIN.RANGES.USERS_SUBHEADER)
-      .setValues(SHEET_CONFIG.ADMIN.HEADERS.USERS_SUBHEADER)
-      .setBackground(SHEET_CONFIG.ADMIN.COLORS.USERS_SUBHEADER)
+    sheet.getRange(SHEET_CONFIG.ADMIN.RANGES.SUBHEADER)
+      .setValues(SHEET_CONFIG.ADMIN.COLUMNS.HEADERS.SUBHEADER)
+      .setBackground(SHEET_CONFIG.ADMIN.COLORS.SUBHEADER)
       .setFontWeight('bold')
       .setHorizontalAlignment('center');
 
     // Set Column widths
     sheet.setColumnWidths(
-      SHEET_CONFIG.ADMIN.COLUMNS.ADMINS,
-      SHEET_CONFIG.ADMIN.COLUMNS.USERS,
-      SHEET_CONFIG.ADMIN.COLUMN_WIDTH
+      SHEET_CONFIG.ADMIN.COLUMNS.INDEX.ADMINS,
+      SHEET_CONFIG.ADMIN.COLUMNS.INDEX.USERS,
+      SHEET_CONFIG.ADMIN.COLUMNS.WIDTH
     );
 
     // Freeze header row
@@ -44,7 +44,7 @@ function setupSheetDropdowns() {
     const sheet = resetSheet(SHEET_CONFIG.DROPDOWNS.NAME);
 
     // Get header and data ranges
-    const headers = SHEET_CONFIG.DROPDOWNS.HEADERS;
+    const headers = SHEET_CONFIG.DROPDOWNS.COLUMNS.HEADERS;
     const headerRange = sheet.getRange(
       SHEET_CONFIG.DROPDOWNS.POSITIONS.START_ROW,
       SHEET_CONFIG.DROPDOWNS.POSITIONS.START_COL,
@@ -69,7 +69,7 @@ function setupSheetDropdowns() {
       .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
     // Set Column widths
-    const columnWidths = SHEET_CONFIG.DROPDOWNS.COLUMN_WIDTHS;
+    const columnWidths = SHEET_CONFIG.DROPDOWNS.COLUMNS.WIDTHS;
     for (let i = 0; i < columnWidths.length; i++) {
       sheet.setColumnWidth(i + 1, columnWidths[i]);
     }
@@ -93,7 +93,7 @@ function setupSheetRequests() {
     const sheet = resetSheet(SHEET_CONFIG.REQUESTS.NAME);
 
     // Set up header row
-    const headers = SHEET_CONFIG.REQUESTS.HEADERS;
+    const headers = SHEET_CONFIG.REQUESTS.COLUMNS.HEADERS;
     const headerRange = sheet.getRange(
       SHEET_CONFIG.REQUESTS.POSITIONS.START_ROW,
       SHEET_CONFIG.REQUESTS.POSITIONS.START_COL,
@@ -120,7 +120,7 @@ function setupSheetRequests() {
     dataRange.setHorizontalAlignment('left');
 
     // Set Column widths
-    const columnWidths = SHEET_CONFIG.REQUESTS.COLUMN_WIDTHS;
+    const columnWidths = SHEET_CONFIG.REQUESTS.COLUMNS.WIDTHS;
     for (let i = 0; i < columnWidths.length; i++) {
       sheet.setColumnWidth(i + 1, columnWidths[i]);
     }
@@ -133,38 +133,6 @@ function setupSheetRequests() {
   } catch (error) {
     Logger.log(error.stack);
   }
-}
-
-function getColumnWidths() {
-  return {
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.ITEM_ID]             : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.COMMON_ID]           : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.FORECASTED_S4MM_ID]  : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.SHORT_NAME]          : 200,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.COMMON_DESC]         : 200,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.ITEM_DESC]           : 200,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.VENDOR]              : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.MATERIAL_GROUP]      : 90,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.GROUP_FUNCTION]      : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.FAMILY]              : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.SUBFAMILY]           : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.PLANNED_START_DATE]  : 82,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.PLANNED_END_DATE]    : 82,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.BUDGET_LINE_ITEM]    : 200,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.BUDGET_LINE_ITEM2]   : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.BUDGET_START_DATE]   : 82,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.BUDGET_END_DATE]     : 82,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.PARENT_COMMON_ID]    : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.DP_HIERARCHY]        : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.TRACKED_SET]         : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.FREQ]                : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.POWER]               : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.INTEGRATED]          : 110,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.TECH]                : 100,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.PLANNER_NAME]        : 150,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.LAST_UPDATED_BY]     : 200,
-    [SHEET_CONFIG.DATA.COLUMNS.INDEX.LAST_UPDATED]        : 150,
-  };
 }
 
 /**
@@ -218,11 +186,11 @@ function setupSheet(sheetName, config) {
       config.additionalSetup(sheet, config);
     }
 
-    // Apply column widths
-    const columnWidths = getColumnWidths();
-    Object.entries(columnWidths).forEach(([col, width]) => {
-      sheet.setColumnWidth(col, width);
-    });
+    // Set Column widths
+    const columnWidths = SHEET_CONFIG.DATA.COLUMNS.WIDTHS;
+    for (let i = 0; i < columnWidths.length; i++) {
+      sheet.setColumnWidth(i + 1, columnWidths[i]);
+    }
 
     // Freeze header row
     sheet.setFrozenRows(config.headerRow);
@@ -242,7 +210,7 @@ function setupSheetData() {
     startRow: SHEET_CONFIG.DATA.POSITIONS.START_ROW,
     startCol: SHEET_CONFIG.DATA.POSITIONS.START_COL,
     headerRow: SHEET_CONFIG.DATA.POSITIONS.HEADER_ROW,
-    dataColHeaders: SHEET_CONFIG.DATA.HEADERS,
+    dataColHeaders: SHEET_CONFIG.DATA.COLUMNS.HEADERS,
     additionalSetup: (sheet, config) => {
       sheet.getRange(config.startRow, config.startCol, config.headerRow, config.dataColHeaders.length)
         .setValues([config.dataColHeaders]);
@@ -258,7 +226,7 @@ function setupSheetInput() {
     startRow: SHEET_CONFIG.INPUT.POSITIONS.START_ROW,
     startCol: SHEET_CONFIG.INPUT.POSITIONS.START_COL,
     headerRow: SHEET_CONFIG.INPUT.POSITIONS.HEADER_ROW,
-    dataColHeaders: SHEET_CONFIG.DATA.HEADERS,
+    dataColHeaders: SHEET_CONFIG.DATA.COLUMNS.HEADERS,
     additionalSetup: (sheet, config) => {
       sheet.getRange(SHEET_CONFIG.INPUT.IMPORT.CELL)
         .setFormula(SHEET_CONFIG.INPUT.IMPORT.FORMULA);

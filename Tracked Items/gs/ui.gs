@@ -163,9 +163,10 @@ function showGetDataSidebar() {
 }
 
 /**
- * Shows the add role sidebar form.
+ * Shows the role management sidebar form.
+ * @param {string} action - The action to perform ('add' or 'remove')
  */
-function showAddRoleSidebar() {
+function showRoleManagementSidebar(action) {
   try {
     // Run only if current user has Admin access
     if (!checkAccess('Admin')) return;
@@ -174,25 +175,14 @@ function showAddRoleSidebar() {
     activateCell(SHEET_CONFIG.ADMIN.NAME);
 
     // Show Sidebar
-    showSidebar('role_add', 'Add Role');
-  } catch (error) {
-    Logger.log(error.stack);
-  }
-}
+    const html = HtmlService.createHtmlOutput(
+      HtmlService.createHtmlOutputFromFile('role_management')
+        .getContent()
+        .replace('let currentAction = \'\';', `let currentAction = '${action}';`)
+    )
+    .setTitle(action === 'add' ? 'Add Role' : 'Remove Role');
 
-/**
- * Shows the remove role sidebar form.
- */
-function showRemoveRoleSidebar() {
-  try {
-    // Run only if current user has Admin access
-    if (!checkAccess('Admin')) return;
-
-    // Activate 'Admin' sheet
-    activateCell(SHEET_CONFIG.ADMIN.NAME);
-
-    // Show Sidebar
-    showSidebar('role_remove', 'Remove Role');
+    SpreadsheetApp.getUi().showSidebar(html);
   } catch (error) {
     Logger.log(error.stack);
   }

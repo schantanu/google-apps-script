@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+      body { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; }
+      h4 { font-weight: bold; }
+      p { font-size: 12.4px; }
+      label { font-size: 13px; font-weight: bold; }
+      .form-select, .form-control { font-size: 12px; }
+      .required:after { content:" *"; color: red; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="mt-3 d-grid gap-2">
+        <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showAdminConsole')">← Back to Admin Console</button>
+      </div>
+
+      <hr>
+
+      <div class="mt-3 mb-3" id="form-header">
+        <!-- Form header will be populated by JavaScript -->
+      </div>
+
+      <hr>
+
+      <form id="role-form" class="mt-3 mb-3">
+        <div>
+          <label for="role" class="form-label required">Select Role</label>
+          <select class="form-select" id="role" required>
+            <option value="" selected disabled>Select a role</option>
+            <option value="User">User</option>
+            <option value="Admin">Administrator</option>
+          </select>
+        </div>
+
+        <!-- Email input section will be dynamically populated -->
+        <div class="mt-3" id="email-section"></div>
+
+        <div class="mt-3 d-grid gap-2">
+          <button type="submit" id="submit-button" class="btn btn-sm btn-secondary" disabled></button>
+        </div>
+      </form>
+
+      <div id="alert" class="mt-3"></div>
+    </div>
+
+    <script>
+      let currentAction = '';
+
+      function initializeForm(action) {
+        currentAction = action;
+        const isAdd = action === 'add';
+
+        // Set header content
+        const headerHtml = `
+          <h4>${isAdd ? 'Add Role' : 'Remove Role'}</h4>
+          <p>${isAdd ? 'Give a user access to the User or Administrator features of this Google Sheet.' :
+                      'Remove existing users from accessing User or Administrator features for this Google Sheet.'}</p>
+          ${isAdd ? '<p>To add multiple users at once, add a comma(,) between email addresses.</p>' : ''}
+        `;
+        $('#form-header').html(headerHtml);
+
+        // Set email input section
+        const emailHtml = isAdd ?
+          `<div>
+            <label for="email-addresses" class="form-label required">Enter Email Addresses</label>
+            <textarea class="form-control" id="email-addresses" rows="3"
+              placeholder="Enter email address. For adding multiple email addresses use commas." required></textarea>
+          </div>` :
+          `<div>
+            <label for="email-address" class="form-label required">Select User to Remove</label>
+            <select class="form-select" id="email-address" required disabled>
+              <option value="" selected disabled>Select an email address</option>
+            </select>
+          </div>`;
+        $('#email-section').html(emailHtml);
+
+        // Set submit button
+        $('#submit-button')
+          .text(isAdd ? 'Add Role' : 'Remove Role')
+          .removeClass('btn-primary btn-danger btn-secondary')
+          .addClass(isAdd ? 'btn-primary' : 'btn-danger');
+
+        // Setup event listeners
+        $('#role').on('change', handleRoleChange);
+        if (isAdd) {
+          $('#email-addresses').on('input', updateSubmitState);
+        } else {
+          $('#email-address').on('change', updateSubmitState);
+        }
+
+        $('#role-form').on('submit', handleSubmit);
+      }
+
+      function handleRoleChange() {
+        const selectedRole = $('#role').val();
+        if (!selectedRole) return;
+
+        if (currentAction === 'remove') {
+          loadEmailAddresses(selectedRole);
+        }
+        updateSubmitState();
+      }
+
+      function loadEmailAddresses(role) {
+        const emailSelect = $('#email-address');
+        emailSelect.prop('disabled', true);
+        $('#submit-button').prop('disabled', true);
+
+        google.script.run
+          .withSuccessHandler(function(emails) {
+            emailSelect.empty().append('<option value="" selected disabled>Select an email address</option>');
+            emails.forEach(email => {
+              emailSelect.append(`<option value="${email}">${email}</option>`);
+            });
+            emailSelect.prop('disabled', false);
+            updateSubmitState();
+          })
+          .withFailureHandler(function(error) {
+            showAlert('danger', error.message);
+            emailSelect.prop('disabled', false);
+          })
+          .getEmailsByRole(role);
+      }
+
+      function updateSubmitState() {
+        const role = $('#role').val();
+        const emailValue = currentAction === 'add' ?
+          $('#email-addresses').val() :
+          $('#email-address').val();
+
+        const isValid = role && emailValue;
+        $('#submit-button')
+          .prop('disabled', !isValid)
+          .removeClass('btn-secondary')
+          .addClass(currentAction === 'add' ? 'btn-primary' : 'btn-danger');
+      }
+
+      function handleSubmit(e) {
+        e.preventDefault();
+        const role = $('#role').val();
+        const emailData = currentAction === 'add' ?
+          $('#email-addresses').val() :
+          $('#email-address').val();
+
+        disableForm(true);
+
+        google.script.run
+          .withSuccessHandler(handleSuccess)
+          .withFailureHandler(handleError)
+          [currentAction === 'add' ? 'addAccess' : 'removeAccess'](role, emailData);
+      }
+
+      function handleSuccess() {
+        showAlert('success', `Role successfully ${currentAction}ed!`);
+        resetForm();
+        disableForm(false);
+      }
+
+      function handleError(error) {
+        showAlert('danger', error.message);
+        disableForm(false);
+      }
+
+      function disableForm(disabled) {
+        $('#role, #submit-button').prop('disabled', disabled);
+        if (currentAction === 'add') {
+          $('#email-addresses').prop('disabled', disabled);
+        } else {
+          $('#email-address').prop('disabled', disabled);
+        }
+
+        if (disabled) {
+          $('#submit-button').html('<span class="spinner-border spinner-border-sm"></span> Processing...');
+        } else {
+          $('#submit-button').text(currentAction === 'add' ? 'Add Role' : 'Remove Role');
+        }
+      }
+
+      function resetForm() {
+        $('#role-form')[0].reset();
+        if (currentAction === 'remove') {
+          $('#email-address').empty()
+            .append('<option value="" selected disabled>Select an email address</option>')
+            .prop('disabled', true);
+        }
+        updateSubmitState();
+      }
+
+      function showAlert(type, message) {
+        const alertHtml = `
+          <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>`;
+        $('#alert').html(alertHtml);
+        setTimeout(() => $('#alert').html(''), 5000);
+      }
+
+      function toggleSpinner(btn, fn) {
+        const btnText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Loading...';
+        btn.disabled = true;
+
+        google.script.run
+          .withSuccessHandler(() => {
+            btn.innerHTML = btnText;
+            btn.disabled = false;
+          })
+          .withFailureHandler(() => {
+            btn.innerHTML = btnText;
+            btn.disabled = false;
+          })[fn]();
+      }
+
+      // Initialize form when document is ready
+      $(document).ready(() => initializeForm(currentAction));
+    </script>
+  </body>
+</html>

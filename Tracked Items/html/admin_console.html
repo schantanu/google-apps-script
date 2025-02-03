@@ -69,12 +69,12 @@
         <h6 class="mt-3">Add Role</h6>
         <p>Add users to the Google Sheet to access the User or Administrator features.</p>
         <div class="mt-2 mb-2 d-grid gap-2">
-          <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showAddRoleSidebar')">Add Role</button>
+          <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showRoleManagementSidebar', 'add')">Add Role</button>
         </div>
         <h6 class="mt-3">Remove Role</h6>
         <p>Remove existing Users or Administrators roles from the Google Sheet and revoke access.</p>
         <div class="mt-2 mb-2 d-grid gap-2">
-          <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showRemoveRoleSidebar')">Remove Role</button>
+          <button class="btn btn-sm btn-primary" onclick="toggleSpinner(this, 'showRoleManagementSidebar', 'remove')">Remove Role</button>
         </div>
       </div>
 
@@ -93,20 +93,18 @@
     <script>
       function toggleSpinner(btn, fn, param) {
         const btnText = btn.innerHTML;
-        // Disable all buttons
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(button => button.disabled = true);
-
         btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+        btn.disabled = true;
 
-        const resetButtons = () => {
-          buttons.forEach(button => button.disabled = false);
+        const resetButton = () => {
           btn.innerHTML = btnText;
-        };
+          btn.disabled = false;
+        }
 
         google.script.run
-          .withSuccessHandler(resetButtons)
-          .withFailureHandler(resetButtons)[fn](param);
+          .withSuccessHandler(resetButton)
+          .withFailureHandler(resetButton)
+          [fn](param);
       }
     </script>
   </body>

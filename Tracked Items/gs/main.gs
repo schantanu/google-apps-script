@@ -1,3 +1,23 @@
+function test1() {
+  getAttributeData('ITEM');
+}
+
+/**
+ * Helper to determine field type based on header name
+ * @param {string} header - Field header name
+ * @returns {string} Field type (date, dropdown, or text)
+ */
+function getFieldType(header) {
+  if (ATTRIBUTE_CONFIG.DATES.includes(header)) return 'date';
+
+  const dropdownFields = [
+    'VENDOR', 'MATERIAL GROUP', 'GROUP FUNCTION', 'FAMILY', 'SUBFAMILY',
+    'DP HIERARCHY', 'TRACKED SET', 'FREQ', 'POWER', 'INTEGRATED', 'TECH'
+  ];
+
+  return dropdownFields.includes(header) ? 'dropdown' : 'text';
+}
+
 /**
  * Get attribute data configuration based on type (common or item level)
  * @param {string} type - The type of attributes to get ('common' or 'item')
@@ -11,91 +31,60 @@ function getAttributeData(type) {
 
     // Get data
     const data = dataSheet.getRange(
-                  SHEET_CONFIG.DATA.POSITIONS.DATA_START_ROW,
-                  SHEET_CONFIG.DATA.POSITIONS.START_COL,
-                  dataSheet.getLastRow(),
-                  SHEET_CONFIG.DATA.COLUMNS.INDEX.LAST_UPDATED
-                ).getValues();
+      SHEET_CONFIG.DATA.POSITIONS.DATA_START_ROW,
+      SHEET_CONFIG.DATA.POSITIONS.START_COL,
+      dataSheet.getLastRow(),
+      dataSheet.getLastColumn()
+    ).getValues();
 
-    // Define column configurations
-    const columnConfig = {
-      COMMON: [
-        'SHORT NAME','COMMON DESCRIPTION','VENDOR','MATERIAL GROUP','GROUP FUNCTION','FAMILY',
-        'SUBFAMILY','PLANNED START DATE','PLANNED END DATE','BUDGETLINEITEM','BUDGETLINEITEM2',
-        'BUDGET START DATE','BUDGET END DATE','PARENT COMMON ID','TRACKED SET','FREQ','POWER',
-        'INTEGRATED','TECH'
-      ],
-      ITEM: [
-        'ITEM DESCRIPTION','DP HIERARCHY'
-      ]
-    };
+    // Get selected fields based on type
+    const columnConfig = type === 'COMMON' ?
+      ATTRIBUTE_CONFIG.COMMON_LEVEL_FIELDS :
+      ATTRIBUTE_CONFIG.ITEM_LEVEL_FIELDS;
 
     // Get column indices
-    // const headers = data[0];
-    const headers = SHEET_CONFIG.DATA.HEADERS;
-    const itemIdCol = headers.indexOf('ITEM ID');
-    const commonIdCol = headers.indexOf('COMMON ID');
-
-    // Get columns for selected type
-    const selectedColumns = columnConfig[type];
+    const headers = SHEET_CONFIG.DATA.COLUMNS.HEADERS;
 
     // Get unique IDs based on type
-    const ids = [...new Set(data.map(row => row[type === 'COMMON' ? commonIdCol : itemIdCol]))];
+    // const idIdx = type === 'COMMON' ? SHEET_CONFIG.DATA.COLUMNS.INDEX.COMMON_ID : SHEET_CONFIG.DATA.COLUMNS.INDEX.ITEM_ID;
+    const idIdx = type === 'COMMON' ? 1 : 0;
+    const ids = [...new Set(data.map(row => row[idIdx]).filter(Boolean))];
 
-    const attributes = selectedColumns.map(header => {
-      const colIndex = headers.indexOf(header);
-      return {
-        name: header,
-        columnIndex: colIndex,
-        type: header.toLowerCase().includes('date') ? 'date' :
-              ['VENDOR','MATERIAL GROUP','GROUP FUNCTION','FAMILY','SUBFAMILY',
-              'DP HIERARCHY','TRACKED SET','FREQ','POWER','INTEGRATED','TECH'].includes(header) ? 'dropdown' : 'text',
-        maxLength: SHEET_CONFIG.CHAR_LIMITS[header.replace(/\s+/g, '_')] || 100
-      };
-    });
+    // Map attributes
+    const attributes = columnConfig.map(header => ({
+      name: header,
+      columnIndex: SHEET_CONFIG.DATA.COLUMNS.HEADERS.indexOf(header),
+      type: getFieldType(header),
+      maxLength: ATTRIBUTE_CONFIG.CHAR_LIMITS[header.replace(/\s+/g, '_')] || 100
+    }));
 
-    // Get dropdown values from Admin sheet if needed
+    // Get dropdown values from Dropdowns sheet if needed
     const dropdowns = {};
-    if (type === 'COMMON') {
-      // Get dropdown values for each category from Admin sheet
-      const dropdownColumns = {
-        'VENDOR'          : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.VENDOR,
-        'MATERIAL GROUP'  : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.MATERIAL_GROUP,
-        'GROUP FUNCTION'  : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.GROUP_FUNCTION,
-        'FAMILY'          : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.FAMILY,
-        'SUBFAMILY'       : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.SUBFAMILY,
-        'TRACKED SET'     : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.TRACKED_SET,
-        'FREQ'            : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.FREQ,
-        'POWER'           : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.POWER,
-        'INTEGRATED'      : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.INTEGRATED,
-        'TECH'            : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.TECH
-      };
+    if (attributes.some(attr => attr.type === 'dropdown')) {
+      const dropdownFields = type === 'COMMON' ?
+        Object.keys(SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX) :
+        ATTRIBUTE_CONFIG.ITEM_LEVEL_FIELDS.filter(field =>
+          getFieldType(field) === 'dropdown'
+        );
 
-      Object.entries(dropdownColumns).forEach(([field, col]) => {
-        const values = dropdownsSheet.getRange(2, col, dropdownsSheet.getLastRow()).getValues()
+      dropdownFields.forEach(field => {
+        const colIndex = SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX[field];
+        const values = dropdownsSheet.getRange(
+          SHEET_CONFIG.DROPDOWNS.POSITIONS.DATA_START_ROW,
+          colIndex,
+          dropdownsSheet.getLastRow()
+        ).getValues()
           .map(row => row[0])
           .filter(Boolean);
-        dropdowns[field] = values;
-      });
-    } else if (type === 'item') {
-      // Get dropdown values for each category from Admin sheet
-      const dropdownColumns = {
-        'DP HIERARCHY'    : SHEET_CONFIG.DROPDOWNS.COLUMNS.INDEX.DP_HIERARCHY
-      };
-
-      Object.entries(dropdownColumns).forEach(([field, col]) => {
-        const values = dropdownsSheet.getRange(2, col, dropdownsSheet.getLastRow()).getValues()
-          .map(row => row[0])
-          .filter(Boolean);
-        dropdowns[field] = values;
+        dropdowns[field.replace(/_/g, ' ')] = values;
       });
     }
 
     return {
-      ids: ids,
-      attributes: attributes,
-      dropdowns: dropdowns,
-      config: SHEET_CONFIG.ARCHIVED_FIELDS
+      ids,
+      attributes,
+      dropdowns,
+      config: ATTRIBUTE_CONFIG.ARCHIVED_FIELDS
     };
 
   } catch (error) {
@@ -112,69 +101,49 @@ function getAttributeData(type) {
  */
 function getCurrentValues(type, id) {
   try {
-    if (!type || !id) {
-      throw new Error('Invalid parameters');
-    }
-
-    // Define column configurations
-    const columnConfig = {
-      common: [
-        'SHORT NAME',
-        'COMMON DESCRIPTION',
-        'VENDOR',
-        'MATERIAL GROUP',
-        'GROUP FUNCTION',
-        'FAMILY',
-        'SUBFAMILY',
-        'PLANNED START DATE',
-        'PLANNED END DATE',
-        'BUDGETLINEITEM',
-        'BUDGETLINEITEM2',
-        'BUDGET START DATE',
-        'BUDGET END DATE',
-        'PARENT COMMON ID',
-        'TRACKED SET',
-        'FREQ',
-        'POWER',
-        'INTEGRATED',
-        'TECH'
-      ],
-      item: [
-        'ITEM DESCRIPTION',
-        'DP HIERARCHY'
-      ]
-    };
+    if (!type || !id) throw new Error('Invalid parameters');
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
-    const data = dataSheet.getDataRange().getDisplayValues();
-    const headers = data[0];
 
-    // Get column indices
-    const idCol = headers.indexOf(type === 'COMMON' ? 'COMMON ID' : 'ITEM ID');
-    const selectedColumns = columnConfig[type];
+    // Get headers and column configs
+    const headers = SHEET_CONFIG.DATA.COLUMNS.HEADERS;
+    const columnConfig = type === 'COMMON' ?
+      ATTRIBUTE_CONFIG.COMMON_LEVEL_FIELDS :
+      ATTRIBUTE_CONFIG.ITEM_LEVEL_FIELDS;
 
-    // Find row with matching ID
-    const row = data.find(row => row[idCol] === id);
-    if (!row) return null;
+    // Find row with matching ID efficiently
+    const idCol = type === 'COMMON' ?
+      SHEET_CONFIG.DATA.COLUMNS.INDEX.COMMON_ID :
+      SHEET_CONFIG.DATA.COLUMNS.INDEX.ITEM_ID;
 
-    // Create result object with current values
+    const searchRange = dataSheet.getRange(
+      SHEET_CONFIG.DATA.POSITIONS.DATA_START_ROW,
+      SHEET_CONFIG.DATA.POSITIONS.START_COL,
+      dataSheet.getLastRow() - 1,
+      headers.length
+    );
+
+    const values = searchRange.getDisplayValues();
+    const rowIndex = values.findIndex(row => row[idCol - 1] === id);
+
+    if (rowIndex === -1) return null;
+
+    // Create result object with optimized mapping
     const result = {};
-    selectedColumns.forEach(header => {
+    columnConfig.forEach(header => {
       const colIndex = headers.indexOf(header);
       if (colIndex !== -1) {
-        // Convert header to lowercase with hyphens for object key
         const key = header.toLowerCase().replace(/\s+/g, '-');
-        result[key] = row[colIndex];
+        result[key] = values[rowIndex][colIndex];
       }
     });
 
-    Logger.log('Result for ID ' + id + ': ' + JSON.stringify(result));
     return result;
 
   } catch (error) {
-    Logger.log('Error in getCurrentValues: ' + error.stack);
-    throw new Error('Failed to get current values: ' + error.message);
+    Logger.log(error.stack);
+    throw new Error(`Failed to get current values: ${error.message}`);
   }
 }
 
@@ -189,7 +158,7 @@ function submitAttributeRequest(formData) {
     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
     const inputSheet = ss.getSheetByName(SHEET_CONFIG.INPUT.NAME);
     const requestsSheet = ss.getSheetByName(SHEET_CONFIG.REQUESTS.NAME);
-    const headers = SHEET_CONFIG.DATA.HEADERS;
+    const headers = SHEET_CONFIG.DATA.COLUMNS.HEADERS;
 
     const timestamp = new Date().toISOString();
     const userEmail = Session.getActiveUser().getEmail();
@@ -246,181 +215,6 @@ function submitAttributeRequest(formData) {
     throw new Error('Failed to submit request: ' + error.message);
   }
 }
-
-
-// function submitAttributeRequest(formData) {
-//   try {
-//     const ss = SpreadsheetApp.getActiveSpreadsheet();
-//     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
-//     const requestsSheet = ss.getSheetByName(SHEET_CONFIG.REQUESTS.NAME);
-//     const headers = SHEET_CONFIG.DATA.HEADERS;
-
-//     const timestamp = new Date().toISOString();
-//     const userEmail = Session.getActiveUser().getEmail();
-
-//     const data = dataSheet.getDataRange().getValues();
-//     const commonIdCol = headers.indexOf('COMMON ID');
-//     const itemIdCol = headers.indexOf('ITEM ID');
-
-//     Object.entries(formData.attributes).forEach(([key, newValue]) => {
-//       const headerName = key.replace(/-/g, ' ').toUpperCase();
-//       const colIndex = headers.indexOf(headerName);
-
-//       // Find rows to update based on attribute level
-//       const rowsToUpdate = [];
-//       if (formData.type === 'COMMON') {
-//         // For common level, get all rows with same COMMON ID
-//         data.forEach((row, idx) => {
-//           if (row[commonIdCol] === formData.id) {
-//             rowsToUpdate.push(idx);
-//           }
-//         });
-//       } else {
-//         // For item level, get specific ITEM ID row
-//         const rowIndex = data.findIndex(row => row[itemIdCol] === formData.id);
-//         if (rowIndex !== -1) rowsToUpdate.push(rowIndex);
-//       }
-
-//       if (rowsToUpdate.length === 0) throw new Error('ID not found');
-
-//       rowsToUpdate.forEach(rowIndex => {
-//         const currentValue = data[rowIndex][colIndex];
-//         if (currentValue !== newValue) {
-//           const range = dataSheet.getRange(rowIndex + 1, colIndex + 1);
-//           range.setNote(`User: ${userEmail}\nChange: ${currentValue} → ${newValue}`)
-//                .setBackground('#ffe066');
-
-//           requestsSheet.appendRow([
-//             timestamp,
-//             userEmail,
-//             'Pending',
-//             formData.id,
-//             formData.type,
-//             headerName,
-//             currentValue || '',
-//             newValue || '',
-//             ''
-//           ]);
-//         }
-//       });
-//     });
-
-//     SpreadsheetApp.flush();
-//     return true;
-
-//   } catch (error) {
-//     Logger.log('Error in submitAttributeRequest: ' + error.stack);
-//     throw new Error('Failed to submit request: ' + error.message);
-//   }
-// }
-// function submitAttributeRequest(formData) {
-//   try {
-//     const ss = SpreadsheetApp.getActiveSpreadsheet();
-//     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
-//     const inputSheet = ss.getSheetByName(SHEET_CONFIG.INPUT.NAME);
-//     const requestsSheet = ss.getSheetByName(SHEET_CONFIG.REQUESTS.NAME);
-//     const headers = SHEET_CONFIG.DATA.HEADERS;
-
-//     const timestamp = new Date().toISOString();
-//     const userEmail = Session.getActiveUser().getEmail();
-//     const idColName = formData.type === 'COMMON' ? 'COMMON ID' : 'ITEM ID';
-//     const idColIndex = headers.indexOf(idColName);
-
-//     // Function to apply highlighting and notes
-//     const applyChanges = (sheet, rowIndex, colIndex, currentValue, newValue) => {
-//       const range = sheet.getRange(rowIndex + 1, colIndex + 1);
-//       const note = `User: ${userEmail}\nChange: ${currentValue} → ${newValue}${
-//         formData.notes ? '\n\nNotes: ' + formData.notes : ''
-//       }`;
-//       range.setNote(note).setBackground('#ffe066');
-//     };
-
-//     // // Process changes in both sheets
-//     // [dataSheet, inputSheet].forEach(sheet => {
-//     //   const data = sheet.getDataRange().getValues();
-
-//     //   // Highlight ID column
-//     //   data.forEach((row, rowIndex) => {
-//     //     if (row[idColIndex] === formData.id) {
-//     //       applyChanges(sheet, rowIndex, idColIndex, formData.id, formData.id);
-
-//     //       // Process attribute changes
-//     //       Object.entries(formData.attributes).forEach(([key, newValue]) => {
-//     //         const headerName = key.replace(/-/g, ' ').toUpperCase();
-//     //         const colIndex = headers.indexOf(headerName);
-//     //         const currentValue = row[colIndex];
-
-//     //         if (currentValue !== newValue) {
-//     //           applyChanges(sheet, rowIndex, colIndex, currentValue, newValue);
-
-//     //           // Only add to requests sheet once (for data sheet)
-//     //           if (sheet === dataSheet) {
-//     //             requestsSheet.appendRow([
-//     //               timestamp,
-//     //               userEmail,
-//     //               'Pending',
-//     //               formData.id,
-//     //               formData.type,
-//     //               headerName,
-//     //               currentValue || '',
-//     //               newValue || '',
-//     //               formData.notes || ''
-//     //             ]);
-//     //           }
-//     //         }
-//     //       });
-//     //     }
-//     //   });
-//     // });
-
-//     [dataSheet, inputSheet].forEach(sheet => {
-//       const data = sheet.getDataRange().getValues();
-
-//       // Only highlight ID column
-//       data.forEach((row, rowIndex) => {
-//         if (row[idColIndex] === formData.id) {
-//           sheet.getRange(rowIndex + 1, idColIndex + 1).setBackground('#ffe066');
-
-//           // Process attribute changes with notes
-//           Object.entries(formData.attributes).forEach(([key, newValue]) => {
-//             const headerName = key.replace(/-/g, ' ').toUpperCase();
-//             const colIndex = headers.indexOf(headerName);
-//             const currentValue = row[colIndex];
-
-//             if (currentValue !== newValue) {
-//               const range = sheet.getRange(rowIndex + 1, colIndex + 1);
-//               const note = `User: ${userEmail}\nChange: ${currentValue} → ${newValue}${
-//                 formData.notes ? '\n\nNotes: ' + formData.notes : ''
-//               }`;
-//               range.setNote(note).setBackground('#ffe066');
-
-//               if (sheet === dataSheet) {
-//                 requestsSheet.appendRow([
-//                   timestamp,
-//                   userEmail,
-//                   'Pending',
-//                   formData.id,
-//                   formData.type,
-//                   headerName,
-//                   currentValue || '',
-//                   newValue || '',
-//                   formData.notes || ''
-//                 ]);
-//               }
-//             }
-//           });
-//         }
-//       });
-//     });
-
-//     SpreadsheetApp.flush();
-//     return true;
-
-//   } catch (error) {
-//     Logger.log('Error in submitAttributeRequest: ' + error.stack);
-//     throw new Error('Failed to submit request: ' + error.message);
-//   }
-// }
 
 /**
  * Add a change request to the tracking sheet with validation and access control

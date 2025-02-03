@@ -457,12 +457,12 @@
 
       /**
        * Initialize form with attribute type
-       * @param {string} type - Attribute type ('common' or 'item')
+       * @param {string} type - Attribute type ('COMMON' or 'ITEM')
        */
       function initializeForm(type) {
         showLoading();
         attributeType = type;
-        const isCommon = type === 'common';
+        const isCommon = type === 'COMMON';
 
         document.getElementById('form-header').textContent = `Update ${isCommon ? 'Common ID' : 'Item ID'} Attributes`;
         document.getElementById('form-description').textContent = `Update attributes for selected ${isCommon ? 'Common ID' : 'Item ID'}.`;
@@ -514,25 +514,6 @@
        * Create form field element
        * @param {Object} attr - Attribute configuration
        */
-      // function createFormField(attr) {
-      //   const div = document.createElement('div');
-      //   div.className = 'mb-3';
-
-      //   const label = document.createElement('label');
-      //   label.className = 'form-label';
-      //   label.textContent = attr.name;
-
-      //   const input = createInput(attr);
-      //   input.id = attr.name.replace(/\s+/g, '-').toLowerCase();
-      //   input.disabled = true;
-      //   input.addEventListener('change', function() {
-      //     this.classList.toggle('empty-field', !this.value);
-      //     checkFormChanges();
-      //   });
-
-      //   div.append(label, input);
-      //   return div;
-      // }
       function createFormField(attr) {
         const div = document.createElement('div');
         div.className = attr.type === 'text' ? 'mb-1' : 'mb-3';

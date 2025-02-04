@@ -1,5 +1,6 @@
 function test1() {
-  getAttributeData('ITEM');
+  // getAttributeData('ITEM');
+  Logger.log(getCurrentValues('ITEM','96-002315-A'));
 }
 
 /**
@@ -33,7 +34,7 @@ function getAttributeData(type) {
     const data = dataSheet.getRange(
       SHEET_CONFIG.DATA.POSITIONS.DATA_START_ROW,
       SHEET_CONFIG.DATA.POSITIONS.START_COL,
-      dataSheet.getLastRow(),
+      dataSheet.getLastRow() - 1,
       dataSheet.getLastColumn()
     ).getValues();
 
@@ -45,10 +46,12 @@ function getAttributeData(type) {
     // Get column indices
     const headers = SHEET_CONFIG.DATA.COLUMNS.HEADERS;
 
-    // Get unique IDs based on type
-    // const idIdx = type === 'COMMON' ? SHEET_CONFIG.DATA.COLUMNS.INDEX.COMMON_ID : SHEET_CONFIG.DATA.COLUMNS.INDEX.ITEM_ID;
-    const idIdx = type === 'COMMON' ? 1 : 0;
-    const ids = [...new Set(data.map(row => row[idIdx]).filter(Boolean))];
+    // Get ID column index from config
+    const idField = type === 'COMMON' ? 'COMMON ID' : 'ITEM ID';
+    const idColIndex = SHEET_CONFIG.DATA.COLUMNS.INDEX[idField] - 1;
+
+    // Get unique ids
+    const ids = [...new Set(data.map(row => row[idColIndex]).filter(Boolean))];
 
     // Map attributes
     const attributes = columnConfig.map(header => ({
@@ -106,35 +109,36 @@ function getCurrentValues(type, id) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const dataSheet = ss.getSheetByName(SHEET_CONFIG.DATA.NAME);
 
-    // Get headers and column configs
-    const headers = SHEET_CONFIG.DATA.COLUMNS.HEADERS;
+    // Get column config based on type
     const columnConfig = type === 'COMMON' ?
       ATTRIBUTE_CONFIG.COMMON_LEVEL_FIELDS :
       ATTRIBUTE_CONFIG.ITEM_LEVEL_FIELDS;
 
-    // Find row with matching ID efficiently
-    const idCol = type === 'COMMON' ?
-      SHEET_CONFIG.DATA.COLUMNS.INDEX.COMMON_ID :
-      SHEET_CONFIG.DATA.COLUMNS.INDEX.ITEM_ID;
+    // Get ID column index from config
+    const idField = type === 'COMMON' ? 'COMMON ID' : 'ITEM ID';
+    const idColIndex = SHEET_CONFIG.DATA.COLUMNS.INDEX[idField] - 1;
 
+    // Get data range
+    const headers = SHEET_CONFIG.DATA.COLUMNS.HEADERS;
+    const lastRow = dataSheet.getLastRow();
     const searchRange = dataSheet.getRange(
       SHEET_CONFIG.DATA.POSITIONS.DATA_START_ROW,
       SHEET_CONFIG.DATA.POSITIONS.START_COL,
-      dataSheet.getLastRow() - 1,
+      lastRow - 1,
       headers.length
     );
 
     const values = searchRange.getDisplayValues();
-    const rowIndex = values.findIndex(row => row[idCol - 1] === id);
+    const rowIndex = values.findIndex(row => row[idColIndex] === id);
 
     if (rowIndex === -1) return null;
 
-    // Create result object with optimized mapping
+    // Create result object
     const result = {};
-    columnConfig.forEach(header => {
-      const colIndex = headers.indexOf(header);
-      if (colIndex !== -1) {
-        const key = header.toLowerCase().replace(/\s+/g, '-');
+    columnConfig.forEach(field => {
+      const colIndex = SHEET_CONFIG.DATA.COLUMNS.INDEX[field] - 1;
+      if (colIndex !== undefined) {
+        const key = field.toLowerCase().replace(/\s+/g, '-');
         result[key] = values[rowIndex][colIndex];
       }
     });
@@ -197,7 +201,7 @@ function submitAttributeRequest(formData) {
 
               // Note and highlight for changed column
               const range = sheet.getRange(rowIndex + 1, colIndex + 1);
-              const note = `User: ${userEmail}\nChange: ${row[colIndex]} → ${newValue}${
+              const note = `User: ${userEmail}\nOld Value: ${row[colIndex]}\nNew Value:¬ ${newValue}${
                 formData.notes ? '\n\nNotes: ' + formData.notes : ''
               }`;
               range.setNote(note).setBackground('#ffe066');

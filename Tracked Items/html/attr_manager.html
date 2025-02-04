@@ -154,13 +154,13 @@
       .archived-section {
         margin-top: 1rem;
         padding-top: 1rem;
-        background-color: #f8f9fa;
+        /* background-color: #f8f9fa; */
         border-radius: 0.25rem;
       }
 
       .archived-section h6 {
         margin-bottom: 1rem;
-        color: #6c757d;
+        color: #000000;
       }
 
       .loading-overlay {
@@ -358,6 +358,18 @@
       </div>
     </div>
 
+    <div id="loading-screen" class="modal fade" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body text-center p-4">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <h6>Submitting request for approval...</h6>
+            <p class="text-muted small mb-0">Please wait while we process your request.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       // Global state
       let attributeType = '';
@@ -419,9 +431,22 @@
           dateFormat: 'd-M-y',
           allowInput: true,
           allowEmpty: true,
-          onChange: function(selectedDates) {
-            plannedEnd.set('minDate', selectedDates[0]);
+          onChange: function(selectedDates, dateStr) {
+            // If date is cleared (empty string) or null, reset end date restrictions
+            if (!dateStr || dateStr === '') {
+              plannedEnd.set('minDate', '');  // Reset minimum date constraint
+              plannedEnd._flatpickr.config.enable = true; // Re-enable all dates
+            } else if (selectedDates[0]) {
+              plannedEnd.set('minDate', selectedDates[0]);
+            }
             checkFormChanges();
+          },
+          onClose: function(selectedDates, dateStr) {
+            // Additional check when datepicker closes
+            if (!dateStr || dateStr === '') {
+              plannedEnd.set('minDate', '');
+              plannedEnd._flatpickr.config.enable = true;
+            }
           }
         });
 
@@ -439,9 +464,20 @@
           dateFormat: 'd-M-y',
           allowInput: true,
           allowEmpty: true,
-          onChange: function(selectedDates) {
-            budgetEnd.set('minDate', selectedDates[0]);
+          onChange: function(selectedDates, dateStr) {
+            if (!dateStr || dateStr === '') {
+              budgetEnd.set('minDate', '');
+              budgetEnd._flatpickr.config.enable = true;
+            } else if (selectedDates[0]) {
+              budgetEnd.set('minDate', selectedDates[0]);
+            }
             checkFormChanges();
+          },
+          onClose: function(selectedDates, dateStr) {
+            if (!dateStr || dateStr === '') {
+              budgetEnd.set('minDate', '');
+              budgetEnd._flatpickr.config.enable = true;
+            }
           }
         });
 
@@ -669,9 +705,10 @@
           const originalValue = originalValues[this.id] || '';
 
           if (currentValue !== originalValue) {
+            // Get the closest label for the field
+            const fieldLabel = $(this).closest('div').find('label').text();
             changes.push({
-              // field: $(`label[for="${this.id}"]`).text(),
-              field: $(this).closest('.mb-3').find('label').text(),
+              field: fieldLabel || this.id.replace(/-/g, ' ').toUpperCase(),
               from: originalValue || '(empty)',
               to: currentValue || '(empty)'
             });
@@ -692,6 +729,13 @@
       });
 
       $('#confirm-submit').on('click', function() {
+        // Hide confirmation modal
+        bootstrap.Modal.getInstance('#confirmationModal').hide();
+
+        // Show loading screen
+        const loadingModal = new bootstrap.Modal('#loading-screen');
+        loadingModal.show();
+
         const formData = {
           type: attributeType,
           id: $('#id-select').val(),
@@ -704,11 +748,16 @@
         });
 
         $('#submit-btn').prop('disabled', true);
-        bootstrap.Modal.getInstance('#confirmationModal').hide();
 
         google.script.run
-          .withSuccessHandler(handleSubmitSuccess)
-          .withFailureHandler(handleSubmitError)
+          .withSuccessHandler(result => {
+            loadingModal.hide();
+            handleSubmitSuccess(result);
+          })
+          .withFailureHandler(error => {
+            loadingModal.hide();
+            handleSubmitError(error);
+          })
           .submitAttributeRequest(formData);
       });
 
@@ -828,6 +877,11 @@
                   this._flatpickr.setDate(value);
                 } else {
                   $(this).val(value);
+                  if ($(this).hasClass('form-control') && !$(this).hasClass('datepicker')) {
+                    const maxLength = $(this).attr('maxLength');
+                    const currentLength = value ? value.length : 0;
+                    $(this).closest('div').find('small.text-muted').html(`${currentLength}/${maxLength}`);
+                  }
                 }
 
                 $(this).toggleClass('empty-field', !value);
